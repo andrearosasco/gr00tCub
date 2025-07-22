@@ -8,6 +8,7 @@ ARG PASSWORD=gr00t
 # Environment variables
 ENV PYTHONDONTWRITEBYTECODE=true
 ENV DEBIAN_FRONTEND=noninteractive
+ENV NO_ALBUMENTATIONS_UPDATE=1
 
 # Install system dependencies
 RUN apt-get update && \
