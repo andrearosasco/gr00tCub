@@ -1,0 +1,38 @@
+{
+    "name": "gr00tCub Development Container",
+    "image": "ghcr.io/andrearosasco/gr00tcub:main",
+    
+    // Configure container settings
+    "runArgs": [
+        "--gpus=all"
+    ],
+    
+    // Mount the workspace
+    "workspaceMount": "source=${localWorkspaceFolder},target=/home/gr00t/gr00tCub,type=bind",
+    "workspaceFolder": "/home/gr00t/gr00tCub",
+    
+    // Set the user
+    "remoteUser": "gr00t",
+    
+    // Post-create command to ensure conda environment is activated
+    "postCreateCommand": "echo 'conda activate gr00t' >> ~/.bashrc",
+    
+    // VS Code settings
+    "customizations": {
+        "vscode": {
+            "settings": {
+                "terminal.integrated.defaultProfile.linux": "bash"
+            },
+            "extensions": [
+                "ms-python.python",
+                "ms-python.black-formatter"
+            ]
+        }
+    },
+    
+    // Forward any ports you might need
+    "forwardPorts": [],
+    
+    // Keep container running
+    "shutdownAction": "stopContainer"
+}
