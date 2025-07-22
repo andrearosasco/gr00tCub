@@ -5,23 +5,21 @@ FROM nvidia/cuda:12.4.1-cudnn-devel-ubuntu22.04
 ARG USER=gr00t
 ARG PASSWORD=gr00t
 
-# Environment variables to prevent interactive prompts and bytecode generation
+# Environment variables
 ENV PYTHONDONTWRITEBYTECODE=true
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install system dependencies, merging ours with the official list
+# Install system dependencies
 RUN apt-get update && \
     apt-get install --no-install-recommends -y \
-    # For user setup and conda
-    sudo git wget bzip2 \
-    # Official Repo Dependencies
+    sudo git git-lfs wget bzip2 \
     tzdata netcat dnsutils libgl1-mesa-glx libvulkan-dev \
-    zip unzip curl git-lfs build-essential cmake \
+    zip unzip curl build-essential cmake \
     vim less htop ca-certificates tmux ffmpeg \
     libglib2.0-0 libsm6 libxext6 libxrender-dev && \
     rm -rf /var/lib/apt/lists/*
 
-# Create non-root user with passwordless sudo (as before)
+# Create non-root user
 RUN addgroup ${USER} && \
     useradd -ms /bin/bash ${USER} -g ${USER} && \
     echo "${USER}:${PASSWORD}" | chpasswd && \
@@ -32,7 +30,7 @@ RUN addgroup ${USER} && \
 USER ${USER}
 WORKDIR /home/${USER}
 
-# Install Miniforge (as before)
+# Install Miniforge
 ARG CONDA_SCRIPT=Miniforge3-Linux-x86_64.sh
 ARG CONDA_LINK=https://github.com/conda-forge/miniforge/releases/latest/download/${CONDA_SCRIPT}
 RUN wget --quiet ${CONDA_LINK} -O /tmp/${CONDA_SCRIPT} && \
@@ -41,56 +39,43 @@ RUN wget --quiet ${CONDA_LINK} -O /tmp/${CONDA_SCRIPT} && \
     /home/${USER}/miniforge/bin/conda init bash && \
     /home/${USER}/miniforge/bin/conda clean -afy
 
-# Add conda to the PATH for all subsequent commands
+# Add conda to the PATH
 ENV PATH="/home/${USER}/miniforge/bin:${PATH}"
 
-# --- CACHING AND INSTALLATION LOGIC ---
-
-# Create the conda environment first
+# Create the conda environment
 RUN conda create -n gr00t python=3.10 -y && \
     echo "conda activate gr00t" >> /home/${USER}/.bashrc
 
-# Set working directory for the project
+# --- CLONE REPO AND INSTALL ---
+
+# Clone the repository directly inside the container. This is the key change.
+# For better caching, you could clone a specific commit hash instead of the main branch.
+RUN git clone https://github.com/NVIDIA/Isaac-GR00T.git
+
+# Set the working directory to the cloned repo
 WORKDIR /home/${USER}/Isaac-GR00T
 
-# Copy only the files required for dependency installation first.
-# This layer will be cached and reused as long as these files don't change.
-COPY --chown=gr00t:gr00t setup.py pyproject.toml README.md ./
+# Run the full installation sequence from within the repo directory
+RUN conda run -n gr00t pip install --upgrade pip setuptools && \
+    conda run -n gr00t pip install gpustat wandb==0.19.0 && \
+    conda run -n gr00t pip install -e .[base] && \
+    conda run -n gr00t pip uninstall -y transformer-engine && \
+    conda run -n gr00t pip install flash-attn==2.7.1.post4 -U --force-reinstall && \
+    (conda run -n gr00t pip uninstall -y opencv-python opencv-python-headless || true) && \
+    conda run -n gr00t pip install opencv-python==4.8.0.74 && \
+    conda run -n gr00t pip install --force-reinstall torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 numpy==1.26.4 && \
+    conda run -n gr00t pip install accelerate>=0.26.0
 
-# Run the full, official installation and conflict resolution sequence.
-# This is the most important step and is now aligned with the official Dockerfile.
-RUN conda run -n gr00t /bin/bash -c " \
-    set -ex && \
-    pip install --upgrade pip setuptools && \
-    pip install gpustat wandb==0.19.0 && \
-    # 1. Initial install, which is known to create conflicts
-    pip install -e .[base] && \
-    # 2. Fix known conflict by removing transformer-engine
-    pip uninstall -y transformer-engine && \
-    # 3. Reinstall flash-attn correctly
-    pip install flash-attn==2.7.1.post4 -U --force-reinstall && \
-    # 4. Fix OpenCV version
-    pip uninstall -y opencv-python opencv-python-headless || true && \
-    pip install opencv-python==4.8.0.74 && \
-    # 5. Force-reinstall torch and numpy to fix versions clobbered by other packages
-    pip install --force-reinstall torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 numpy==1.26.4 && \
-    # 6. Install accelerate separately
-    pip install accelerate>=0.26.0 \
-    "
-
-# Now, copy the rest of the application code. If you only change a script,
-# the build will use the cache for all previous layers and start from here.
-COPY --chown=gr00t:gr00t . .
-
-# Final step from the official file: install in editable mode without reinstalling dependencies.
-# This ensures the `gr00t` package is correctly recognized by Python.
+# Final installation step
 RUN conda run -n gr00t pip install -e . --no-deps
 
-# Revert sudoers file to its original state for security
+# --- FINAL SETUP ---
+
+# Revert sudoers file for security
 USER root
 RUN mv /etc/sudoers.bak /etc/sudoers
 
-# Switch back to the non-root user and set the default command
+# Switch back to the non-root user
 USER ${USER}
 WORKDIR /home/${USER}/Isaac-GR00T
 CMD ["/bin/bash", "-c", "source /home/gr00t/.bashrc; exec /bin/bash"]
