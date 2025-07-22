@@ -77,7 +77,7 @@ ARG PASSWORD=gr00t
 # Environment variables
 ENV PYTHONDONTWRITEBYTECODE=true
 ENV DEBIAN_FRONTEND=noninteractive
-ENV PATH="/home/${USER}/miniforge/bin:${PATH}"
+ENV NO_ALBUMENTATIONS_UPDATE=1
 
 # Install only necessary runtime system dependencies
 RUN apt-get update && \
@@ -100,12 +100,12 @@ COPY --from=build /home/${USER}/miniforge /home/${USER}/miniforge
 # Copy the cloned repository and installed package
 COPY --from=build /home/${USER}/Isaac-GR00T /home/${USER}/Isaac-GR00T
 
+# Set up the shell environment
+COPY --from=build /home/${USER}/.bashrc /home/${USER}/.bashrc
+
 # Set the user and working directory
 USER ${USER}
 WORKDIR /home/${USER}/Isaac-GR00T
 
-# Set up the shell environment
-RUN echo "conda activate gr00t" >> /home/${USER}/.bashrc
-
 # Default command
-CMD ["/bin/bash", "-c", "source /home/gr00t/.bashrc; exec /bin/bash"]
+CMD ["bash"]
