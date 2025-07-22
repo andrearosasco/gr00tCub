@@ -44,12 +44,18 @@ RUN conda create -n gr00t python=3.10 -y
 RUN git clone https://github.com/NVIDIA/Isaac-GR00T.git
 WORKDIR /home/${USER}/Isaac-GR00T
 
-# Activate the conda environment and install the Python dependencies as per the guide
-# Using 'conda run' to execute commands within the specified environment
+# --- MODIFIED SECTION ---
+# Activate the conda environment and install the Python dependencies in a specific order
+# to avoid dependency conflicts.
 RUN echo "conda activate gr00t" >> /home/${USER}/.bashrc && \
-    conda run -n gr00t pip install --upgrade setuptools && \
+    # First, install PyTorch using its official command for CUDA 12.1 (compatible with 12.4)
+    # This creates a stable foundation for other packages.
+    conda run -n gr00t pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121 && \
+    # Next, install other major dependencies
     conda run -n gr00t pip install nvidia-tensorrt --extra-index-url https://pypi.ngc.nvidia.com && \
+    # Now, install the project itself. It will find that torch is already installed and be satisfied.
     conda run -n gr00t pip install -e .[base] && \
+    # Finally, install the remaining specific packages
     conda run -n gr00t pip install --no-build-isolation flash-attn==2.7.1.post4
 
 # Revert sudoers file to its original state for security
