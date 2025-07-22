@@ -49,12 +49,10 @@ jobs:
           images: ghcr.io/${{ github.repository }}
 
       # Step 5: Build and push. This step remains unchanged.
-      - name: Build and push with cache
+      - name: Build and push
         uses: docker/build-push-action@v5
         with:
           context: .
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
