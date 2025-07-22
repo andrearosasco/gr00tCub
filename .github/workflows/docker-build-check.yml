@@ -1,0 +1,41 @@
+name: Scheduled Docker Build Check
+
+on:
+  schedule:
+    # Runs at 00:00 on the first day of every month.
+    - cron: '0 0 1 * *'
+  workflow_dispatch:
+
+jobs:
+  build-check:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read # No package write permission needed as we aren't publishing
+
+    steps:
+      # Step 1
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Step 2
+      - name: Free Disk Space
+        uses: jlumbroso/free-disk-space@main
+        with:
+          tool-cache: true
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+
+      # Step 3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Step 4
+      - name: Build Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: false
+          load: true
