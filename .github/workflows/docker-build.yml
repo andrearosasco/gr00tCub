@@ -1,10 +1,10 @@
-# .github/workflows/docker-build.yml
-
-name: Build and Push Docker Image to GHCR
+name: Build and Push Docker Image to GHCR on Dockerfile Change
 
 on:
   push:
     branches: [ "main" ]
+    paths:
+      - 'Dockerfile'
   workflow_dispatch:
 
 jobs:
@@ -15,25 +15,22 @@ jobs:
       packages: write
 
     steps:
-      # Step 1: Check out THIS repository to get the Dockerfile.
+      # Step 1
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Step 2: Free up disk space on the runner using the action you provided.
-      # This is the key step to solve the "No space left on device" error.
+      # Step 2
       - name: Free Disk Space
         uses: jlumbroso/free-disk-space@main
         with:
-          # This is the most effective option, freeing ~15-20 GB.
           tool-cache: true
-          # These are all good to keep as true to maximize space.
           android: true
           dotnet: true
           haskell: true
           large-packages: true
           docker-images: true
 
-      # Step 3: Log in to the GitHub Container Registry.
+      # Step 3
       - name: Log in to ghcr.io
         uses: docker/login-action@v3
         with:
@@ -41,18 +38,18 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Step 4: Extract Docker metadata.
+      # Step 4
       - name: Extract Docker metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
           images: ghcr.io/${{ github.repository }}
 
-      # Step 5: Build and push. This step remains unchanged.
+      # Step 5
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
           context: .
-          push: true
+          push: true # This is set to true to publish the image
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
