@@ -1,16 +1,16 @@
 # ---- BUILD STAGE ----
-# This stage installs all dependencies and builds the environment.
+# Use the official NVIDIA CUDA image as the base for the build environment
 FROM nvidia/cuda:12.4.1-cudnn-devel-ubuntu22.04 AS build
 
 # Arguments for user creation
 ARG USER=gr00t
+ARG PASSWORD=gr00t
 
 # Environment variables
 ENV PYTHONDONTWRITEBYTECODE=true
 ENV DEBIAN_FRONTEND=noninteractive
-ENV PATH="/home/${USER}/miniforge/bin:${PATH}"
 
-# Install all build-time and runtime system dependencies
+# Install system dependencies required for building
 RUN apt-get update && \
     apt-get install --no-install-recommends -y \
     sudo git git-lfs wget bzip2 \
@@ -21,35 +21,39 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Create non-root user
-# Note: We don't set a password as it's not needed for this build process.
 RUN addgroup ${USER} && \
     useradd -ms /bin/bash ${USER} -g ${USER} && \
+    echo "${USER}:${PASSWORD}" | chpasswd && \
     usermod -a -G sudo ${USER} && \
-    echo "${USER} ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+    sed -i.bak -e 's/%sudo\s\+ALL=(ALL\(:ALL\)\?)\s\+ALL/%sudo ALL=NOPASSWD:ALL/g' /etc/sudoers
 
 # Switch to the non-root user
 USER ${USER}
 WORKDIR /home/${USER}
 
-# Install Miniforge and initialize it for bash
-# This modifies the .bashrc file, which we will copy to the final stage
+# Install Miniforge
 ARG CONDA_SCRIPT=Miniforge3-Linux-x86_64.sh
 ARG CONDA_LINK=https://github.com/conda-forge/miniforge/releases/latest/download/${CONDA_SCRIPT}
 RUN wget --quiet ${CONDA_LINK} -O /tmp/${CONDA_SCRIPT} && \
     bash /tmp/${CONDA_SCRIPT} -b -p /home/${USER}/miniforge && \
     rm /tmp/${CONDA_SCRIPT} && \
-    /home/${USER}/miniforge/bin/conda init bash
+    /home/${USER}/miniforge/bin/conda init bash && \
+    /home/${USER}/miniforge/bin/conda clean -afy
 
-# Create the conda environment and set it to auto-activate in .bashrc
+# Add conda to the PATH
+ENV PATH="/home/${USER}/miniforge/bin:${PATH}"
+
+# Create and activate the conda environment, then install dependencies
 RUN conda create -n gr00t python=3.10 -y && \
     echo "conda activate gr00t" >> /home/${USER}/.bashrc
 
 # Clone the repository
 RUN git clone https://github.com/NVIDIA/Isaac-GR00T.git
+
+# Set the working directory
 WORKDIR /home/${USER}/Isaac-GR00T
 
-# Install all python packages using 'conda run' to avoid activation issues in RUN
-# This also combines all installations into a single layer to optimize size
+# Install Python packages and clean cache in a single layer
 RUN conda run -n gr00t pip install --upgrade pip setuptools && \
     conda run -n gr00t pip install gpustat wandb==0.19.0 && \
     conda run -n gr00t pip install -e .[base] && \
@@ -60,51 +64,48 @@ RUN conda run -n gr00t pip install --upgrade pip setuptools && \
     conda run -n gr00t pip install --force-reinstall torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 numpy==1.26.4 && \
     conda run -n gr00t pip install accelerate>=0.26.0 && \
     conda run -n gr00t pip install -e . --no-deps && \
-    conda clean -afy && \
-    pip cache purge
+    conda clean -afy
 
-# ---- FINAL STAGE ----
-# This stage creates the final, smaller image with only runtime dependencies.
+# --- FINAL STAGE ---
+# Use a smaller base image for the final stage
 FROM nvidia/cuda:12.4.1-cudnn-devel-ubuntu22.04
 
+# Arguments for user creation (must be redeclared in new stage)
 ARG USER=gr00t
+ARG PASSWORD=gr00t
 
-# Set environment variables for the final image
+# Environment variables
+ENV PYTHONDONTWRITEBYTECODE=true
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PATH="/home/${USER}/miniforge/bin:${PATH}"
 
-# Install only essential RUNTIME system dependencies to keep the image small
+# Install only necessary runtime system dependencies
 RUN apt-get update && \
     apt-get install --no-install-recommends -y \
-    sudo git-lfs wget libgl1-mesa-glx \
-    libvulkan-dev libglib2.0-0 libsm6 \
-    libxext6 libxrender-dev ffmpeg && \
+    sudo git-lfs wget \
+    libgl1-mesa-glx libvulkan-dev \
+    libglib2.0-0 libsm6 libxext6 libxrender-dev ffmpeg && \
     rm -rf /var/lib/apt/lists/*
 
-# Create the non-root user for the final image
+# Create the non-root user, set their password, and add to sudo group.
+# By NOT adding a NOPASSWD rule, the user will be prompted for their password.
 RUN addgroup ${USER} && \
     useradd -ms /bin/bash -g ${USER} ${USER} && \
-    usermod -a -G sudo ${USER} && \
-    echo "${USER} ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+    echo "${USER}:${PASSWORD}" | chpasswd && \
+    usermod -a -G sudo ${USER}
 
-# Copy the pre-built conda environment from the 'build' stage
+# Copy the conda environment from the build stage
 COPY --from=build /home/${USER}/miniforge /home/${USER}/miniforge
 
-# Copy the application code
+# Copy the cloned repository and installed package
 COPY --from=build /home/${USER}/Isaac-GR00T /home/${USER}/Isaac-GR00T
 
-# Copy the configured .bashrc from the build stage. This is key for auto-activation.
-COPY --from=build /home/${USER}/.bashrc /home/${USER}/.bashrc
-
-# Ensure all files in the user's home directory are owned by the user
-USER root
-RUN chown -R ${USER}:${USER} /home/${USER}
-
-# Switch to the final user
+# Set the user and working directory
 USER ${USER}
 WORKDIR /home/${USER}/Isaac-GR00T
 
-# This is the command that restores the original behavior.
-# It starts a bash shell, sources the configured .bashrc to initialize and
-# activate the conda environment, and then leaves you in an interactive shell.
-CMD ["/bin/bash", "-c", "source /home/gr00t/.bashrc && exec /bin/bash"]
+# Set up the shell environment
+RUN echo "conda activate gr00t" >> /home/${USER}/.bashrc
+
+# Default command
+CMD ["/bin/bash", "-c", "source /home/gr00t/.bashrc; exec /bin/bash"]
