@@ -1,5 +1,6 @@
-# Use the official NVIDIA CUDA image as the base
-FROM nvidia/cuda:12.4.1-cudnn-devel-ubuntu22.04
+# ---- BUILD STAGE ----
+# Use the official NVIDIA CUDA image as the base for the build environment
+FROM nvidia/cuda:12.4.1-cudnn-devel-ubuntu22.04 AS build
 
 # Arguments for user creation
 ARG USER=gr00t
@@ -8,9 +9,8 @@ ARG PASSWORD=gr00t
 # Environment variables
 ENV PYTHONDONTWRITEBYTECODE=true
 ENV DEBIAN_FRONTEND=noninteractive
-ENV NO_ALBUMENTATIONS_UPDATE=1
 
-# Install system dependencies
+# Install system dependencies required for building
 RUN apt-get update && \
     apt-get install --no-install-recommends -y \
     sudo git git-lfs wget bzip2 \
@@ -43,20 +43,17 @@ RUN wget --quiet ${CONDA_LINK} -O /tmp/${CONDA_SCRIPT} && \
 # Add conda to the PATH
 ENV PATH="/home/${USER}/miniforge/bin:${PATH}"
 
-# Create the conda environment
+# Create and activate the conda environment, then install dependencies
 RUN conda create -n gr00t python=3.10 -y && \
     echo "conda activate gr00t" >> /home/${USER}/.bashrc
 
-# --- CLONE REPO AND INSTALL ---
-
-# Clone the repository directly inside the container. This is the key change.
-# For better caching, you could clone a specific commit hash instead of the main branch.
+# Clone the repository
 RUN git clone https://github.com/NVIDIA/Isaac-GR00T.git
 
-# Set the working directory to the cloned repo
+# Set the working directory
 WORKDIR /home/${USER}/Isaac-GR00T
 
-# Run the full installation sequence from within the repo directory
+# Install Python packages and clean cache in a single layer
 RUN conda run -n gr00t pip install --upgrade pip setuptools && \
     conda run -n gr00t pip install gpustat wandb==0.19.0 && \
     conda run -n gr00t pip install -e .[base] && \
@@ -65,18 +62,48 @@ RUN conda run -n gr00t pip install --upgrade pip setuptools && \
     (conda run -n gr00t pip uninstall -y opencv-python opencv-python-headless || true) && \
     conda run -n gr00t pip install opencv-python==4.8.0.74 && \
     conda run -n gr00t pip install --force-reinstall torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 numpy==1.26.4 && \
-    conda run -n gr00t pip install accelerate>=0.26.0
+    conda run -n gr00t pip install accelerate>=0.26.0 && \
+    conda run -n gr00t pip install -e . --no-deps && \
+    conda clean -afy
 
-# Final installation step
-RUN conda run -n gr00t pip install -e . --no-deps
+# --- FINAL STAGE ---
+# Use a smaller base image for the final stage
+FROM nvidia/cuda:12.4.1-cudnn-devel-ubuntu22.04
 
-# --- FINAL SETUP ---
+# Arguments for user creation
+ARG USER=gr00t
 
-# Revert sudoers file for security
-USER root
-RUN mv /etc/sudoers.bak /etc/sudoers
+# Environment variables
+ENV PYTHONDONTWRITEBYTECODE=true
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PATH="/home/${USER}/miniforge/bin:${PATH}"
 
-# Switch back to the non-root user
+# Install only necessary runtime system dependencies
+RUN apt-get update && \
+    apt-get install --no-install-recommends -y \
+    sudo git-lfs wget \
+    libgl1-mesa-glx libvulkan-dev \
+    libglib2.0-0 libsm6 libxext6 libxrender-dev ffmpeg && \
+    rm -rf /var/lib/apt/lists/*
+
+# Create the non-root user
+RUN addgroup ${USER} && \
+    useradd -ms /bin/bash -g ${USER} ${USER} && \
+    usermod -a -G sudo ${USER} && \
+    echo "${USER} ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+
+# Copy the conda environment from the build stage
+COPY --from=build /home/${USER}/miniforge /home/${USER}/miniforge
+
+# Copy the cloned repository and installed package
+COPY --from=build /home/${USER}/Isaac-GR00T /home/${USER}/Isaac-GR00T
+
+# Set the user and working directory
 USER ${USER}
 WORKDIR /home/${USER}/Isaac-GR00T
+
+# Set up the shell environment
+RUN echo "conda activate gr00t" >> /home/${USER}/.bashrc
+
+# Default command
 CMD ["/bin/bash", "-c", "source /home/gr00t/.bashrc; exec /bin/bash"]
