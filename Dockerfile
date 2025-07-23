@@ -52,9 +52,6 @@ RUN git clone https://github.com/NVIDIA/Isaac-GR00T.git && \
     git clone https://github.com/ARISE-Initiative/robosuite.git && \
     git clone https://github.com/robocasa/robocasa-gr1-tabletop-tasks.git
 
-# Set the working directory
-WORKDIR /home/${USER}/Isaac-GR00T
-
 # Install Python packages and clean cache in a single layer
 RUN conda run -n gr00t pip install --upgrade pip setuptools && \
     conda run -n gr00t pip install gpustat wandb==0.19.0 && \
