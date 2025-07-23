@@ -67,9 +67,7 @@ RUN conda run -n gr00t pip install --upgrade pip setuptools && \
     conda run -n gr00t pip install -e . --no-deps && \
     conda clean -afy
 
-RUN mv /etc/sudoers.bak /etc/sudoers
-USER ${USER}
-
+RUN sudo mv /etc/sudoers.bak /etc/sudoers
 WORKDIR /home/${USER}/Isaac-GR00T
 
 CMD ["bash"]
