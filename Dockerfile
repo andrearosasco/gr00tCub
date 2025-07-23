@@ -51,11 +51,6 @@ RUN conda create -n gr00t python=3.10 -y && \
 RUN git clone https://github.com/NVIDIA/Isaac-GR00T.git && \
     git clone https://github.com/ARISE-Initiative/robosuite.git && \
     git clone https://github.com/robocasa/robocasa-gr1-tabletop-tasks.git
-    
-
-# 5. Download assets
-cd robocasa-gr1-tabletop-tasks
-python robocasa/scripts/download_tabletop_assets.py -y
 
 # Set the working directory
 WORKDIR /home/${USER}/Isaac-GR00T
@@ -72,7 +67,7 @@ RUN conda run -n gr00t pip install --upgrade pip setuptools && \
     conda run -n gr00t pip install "accelerate>=0.26.0" && \
     conda run -n gr00t pip install -e Isaac-GR00T --no-deps && \
     conda run -n gr00t pip install -e robosuite && \
-    conda run -n gr00t pip install -e robocasa-gr1-tabletop-tasks && \
+    conda run -n gr00t pip install -e robocasa-gr1-tabletop-tasks && cd robocasa-gr1-tabletop-tasks && conda run -n gr00t python robocasa/scripts/download_tabletop_assets.py -y && \
     conda clean -afy
 
 # --- FINAL STAGE ---
