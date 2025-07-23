@@ -95,18 +95,13 @@ RUN addgroup ${USER} && \
     echo "${USER}:${PASSWORD}" | chpasswd && \
     usermod -a -G sudo ${USER}
 
+USER ${USER}
 # Copy the conda environment from the build stage
 COPY --from=build /home/${USER}/miniforge /home/${USER}/miniforge
-
-# Copy the cloned repository and installed package
 COPY --from=build /home/${USER}/Isaac-GR00T /home/${USER}/Isaac-GR00T
-
-# Set up the shell environment
+COPY --from=build /home/${USER}/robosuite /home/${USER}/robosuite
+COPY --from=build /home/${USER}/robocasa-gr1-tabletop-tasks /home/${USER}/robocasa-gr1-tabletop-tasks
 COPY --from=build /home/${USER}/.bashrc /home/${USER}/.bashrc
-
-# Set the user and working directory
-USER ${USER}
-WORKDIR /home/${USER}/Isaac-GR00T
 
 # Default command
 CMD ["bash"]
