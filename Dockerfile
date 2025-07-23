@@ -48,7 +48,14 @@ RUN conda create -n gr00t python=3.10 -y && \
     echo "conda activate gr00t" >> /home/${USER}/.bashrc
 
 # Clone the repository
-RUN git clone https://github.com/NVIDIA/Isaac-GR00T.git
+RUN git clone https://github.com/NVIDIA/Isaac-GR00T.git && \
+    git clone https://github.com/ARISE-Initiative/robosuite.git && \
+    git clone https://github.com/robocasa/robocasa-gr1-tabletop-tasks.git
+    
+
+# 5. Download assets
+cd robocasa-gr1-tabletop-tasks
+python robocasa/scripts/download_tabletop_assets.py -y
 
 # Set the working directory
 WORKDIR /home/${USER}/Isaac-GR00T
@@ -56,14 +63,16 @@ WORKDIR /home/${USER}/Isaac-GR00T
 # Install Python packages and clean cache in a single layer
 RUN conda run -n gr00t pip install --upgrade pip setuptools && \
     conda run -n gr00t pip install gpustat wandb==0.19.0 && \
-    conda run -n gr00t pip install -e .[base] && \
+    conda run -n gr00t pip install -e Isaac-GR00T[base] && \
     conda run -n gr00t pip uninstall -y transformer-engine && \
     conda run -n gr00t pip install flash-attn==2.7.1.post4 -U --force-reinstall && \
     (conda run -n gr00t pip uninstall -y opencv-python opencv-python-headless || true) && \
     conda run -n gr00t pip install opencv-python==4.8.0.74 && \
     conda run -n gr00t pip install --force-reinstall torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 numpy==1.26.4 && \
     conda run -n gr00t pip install "accelerate>=0.26.0" && \
-    conda run -n gr00t pip install -e . --no-deps && \
+    conda run -n gr00t pip install -e Isaac-GR00T --no-deps && \
+    conda run -n gr00t pip install -e robosuite && \
+    conda run -n gr00t pip install -e robocasa-gr1-tabletop-tasks && \
     conda clean -afy
 
 # --- FINAL STAGE ---
