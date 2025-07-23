@@ -9,6 +9,7 @@ ARG PASSWORD=gr00t
 # Environment variables
 ENV PYTHONDONTWRITEBYTECODE=true
 ENV DEBIAN_FRONTEND=noninteractive
+ENV NO_ALBUMENTATIONS_UPDATE=1
 
 # Install system dependencies required for building
 RUN apt-get update && \
@@ -66,46 +67,9 @@ RUN conda run -n gr00t pip install --upgrade pip setuptools && \
     conda run -n gr00t pip install -e . --no-deps && \
     conda clean -afy
 
-# --- FINAL STAGE ---
-# Use a smaller base image for the final stage
-FROM pytorch/pytorch:2.6.0-cuda12.4-cudnn9-devel
-
-# Arguments for user creation (must be redeclared in new stage)
-ARG USER=gr00t
-ARG PASSWORD=gr00t
-
-# Environment variables
-ENV PYTHONDONTWRITEBYTECODE=true
-ENV DEBIAN_FRONTEND=noninteractive
-ENV NO_ALBUMENTATIONS_UPDATE=1
-
-# Install only necessary runtime system dependencies
-RUN apt-get update && \
-    apt-get install --no-install-recommends -y \
-    sudo git-lfs wget \
-    libgl1-mesa-glx libvulkan-dev \
-    libglib2.0-0 libsm6 libxext6 libxrender-dev ffmpeg && \
-    rm -rf /var/lib/apt/lists/*
-
-# Create the non-root user, set their password, and add to sudo group.
-# By NOT adding a NOPASSWD rule, the user will be prompted for their password.
-RUN addgroup ${USER} && \
-    useradd -ms /bin/bash -g ${USER} ${USER} && \
-    echo "${USER}:${PASSWORD}" | chpasswd && \
-    usermod -a -G sudo ${USER}
-
-# Copy the conda environment from the build stage
-COPY --from=build /home/${USER}/miniforge /home/${USER}/miniforge
-
-# Copy the cloned repository and installed package
-COPY --from=build /home/${USER}/Isaac-GR00T /home/${USER}/Isaac-GR00T
-
-# Set up the shell environment
-COPY --from=build /home/${USER}/.bashrc /home/${USER}/.bashrc
-
-# Set the user and working directory
+RUN mv /etc/sudoers.bak /etc/sudoers
 USER ${USER}
+
 WORKDIR /home/${USER}/Isaac-GR00T
 
-# Default command
 CMD ["bash"]
