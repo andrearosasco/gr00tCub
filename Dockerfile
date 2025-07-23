@@ -62,7 +62,7 @@ RUN conda run -n gr00t pip install --upgrade pip setuptools && \
     (conda run -n gr00t pip uninstall -y opencv-python opencv-python-headless || true) && \
     conda run -n gr00t pip install opencv-python==4.8.0.74 && \
     conda run -n gr00t pip install --force-reinstall torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 numpy==1.26.4 && \
-    conda run -n gr00t pip install accelerate>=0.26.0 && \
+    conda run -n gr00t pip install "accelerate>=0.26.0" && \
     conda run -n gr00t pip install -e . --no-deps && \
     conda clean -afy
 
