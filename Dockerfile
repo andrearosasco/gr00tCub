@@ -69,7 +69,7 @@ RUN conda run -n gr00t pip install --upgrade pip setuptools && \
 
 # --- FINAL STAGE ---
 # Use a smaller base image for the final stage
-FROM pytorch/pytorch:2.6.0-cuda12.4-cudnn9-devel
+FROM nvidia/cuda:12.4.1-cudnn-devel-ubuntu22.04
 
 # Arguments for user creation (must be redeclared in new stage)
 ARG USER=gr00t
