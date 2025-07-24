@@ -64,12 +64,14 @@ RUN conda run -n gr00t pip install --upgrade pip setuptools && \
     conda run -n gr00t pip install "accelerate>=0.26.0" && \
     conda run -n gr00t pip install -e Isaac-GR00T --no-deps && \
     conda run -n gr00t pip install -e robosuite && \
-    conda run -n gr00t pip install -e robocasa-gr1-tabletop-tasks && cd robocasa-gr1-tabletop-tasks && conda run -n gr00t python robocasa/scripts/download_tabletop_assets.py -y && \
+    conda run -n gr00t pip install -e robocasa-gr1-tabletop-tasks && \
     conda clean -afy
+
+# cd robocasa-gr1-tabletop-tasks && conda run -n gr00t python robocasa/scripts/download_tabletop_assets.py -y 
 
 # --- FINAL STAGE ---
 # Use a smaller base image for the final stage
-FROM nvidia/cuda:12.4.1-cudnn-devel-ubuntu22.04
+FROM pytorch/pytorch:2.6.0-cuda12.4-cudnn9-devel
 
 # Arguments for user creation (must be redeclared in new stage)
 ARG USER=gr00t
