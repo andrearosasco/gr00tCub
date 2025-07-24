@@ -19,22 +19,7 @@ jobs:
      - name: Checkout repository 
        uses: actions/checkout@v4 
 
-     # Step 2: Aggressive Disk Space Cleanup 
-     - name: Aggressive Disk Space Cleanup
-       run: | 
-         echo "Initial disk space:" 
-         df -h 
-         sudo rm -rf /usr/share/dotnet 
-         sudo rm -rf /usr/local/lib/android 
-         sudo rm -rf /opt/ghc 
-         sudo rm -rf /opt/hostedtoolcache/CodeQL 
-         sudo rm -rf /usr/local/share/boost
-         sudo docker image prune --all --force
-         sudo docker builder prune -a -f
-         echo "Disk space after cleanup:" 
-         df -h 
-
-     # Step 3: Log in to ghcr.io 
+     # Step 2: Log in to ghcr.io 
      - name: Log in to ghcr.io 
        uses: docker/login-action@v3 
        with: 
@@ -42,14 +27,14 @@ jobs:
          username: ${{ github.actor }} 
          password: ${{ secrets.GITHUB_TOKEN }} 
 
-     # Step 4: Extract Docker metadata 
+     # Step 3: Extract Docker metadata 
      - name: Extract Docker metadata 
        id: meta 
        uses: docker/metadata-action@v5 
        with: 
          images: ghcr.io/${{ github.repository }} 
 
-     # Step 5: Build and push 
+     # Step 4: Build and push 
      - name: Build and push 
        uses: docker/build-push-action@v5 
        with: 
