@@ -97,11 +97,11 @@ RUN addgroup ${USER} && \
 
 USER ${USER}
 # Copy the conda environment from the build stage
-COPY --from=build /home/${USER}/miniforge /home/${USER}/miniforge
-COPY --from=build /home/${USER}/Isaac-GR00T /home/${USER}/Isaac-GR00T
-COPY --from=build /home/${USER}/robosuite /home/${USER}/robosuite
-COPY --from=build /home/${USER}/robocasa-gr1-tabletop-tasks /home/${USER}/robocasa-gr1-tabletop-tasks
-COPY --from=build /home/${USER}/.bashrc /home/${USER}/.bashrc
+COPY --chown=gr00t --from=build /home/${USER}/miniforge /home/${USER}/miniforge
+COPY --chown=gr00t --from=build /home/${USER}/Isaac-GR00T /home/${USER}/Isaac-GR00T
+COPY --chown=gr00t --from=build /home/${USER}/robosuite /home/${USER}/robosuite
+COPY --chown=gr00t --from=build /home/${USER}/robocasa-gr1-tabletop-tasks /home/${USER}/robocasa-gr1-tabletop-tasks
+COPY --chown=gr00t --from=build /home/${USER}/.bashrc /home/${USER}/.bashrc
 
 # Default command
 CMD ["bash"]
